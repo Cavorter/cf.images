@@ -11,25 +11,38 @@ function Publish-Image {
 
         [Parameter(Mandatory = $true)]
         [ValidateScript({ Test-Path -Path $_ })]
-        [string]$FilePath
+        [string]$FilePath,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$RequireSignedUrls,
+
+        [Parameter(Mandatory = $false)]
+        [hashtable]$Metadata
     )
 
-    $invokeParams = @{
-        Method = "Post"
-        Uri = ( [uri]( $script:urlTemplate -f $AccountId ) ).AbsoluteUri
-        Authentication = "Bearer"
-        Token = $Token
-        Form = @{
-            file = $FilePath
+    Begin {
+        $invokeParams = @{
+            Method         = "Post"
+            Uri            = ( [uri]( $script:urlTemplate -f $AccountId ) ).AbsoluteUri
+            Authentication = "Bearer"
+            Token          = $Token
+            Form           = @{
+                file = Get-Item -Path $FilePath
+            }
+        }
+
+        if ( $RequireSignedUrls ) {
+            $invokeParams.Form.requireSignedURLs = $true
+        }
+
+        if ( $Metadata ) {
+            $invokeParams.Form.metadata = $Metadata
         }
     }
 
-    switch ( (Get-ChildItem -Path $FilePath).Extension ) {
-        ('.jpg' -or '.jpeg') { $invokeParams.ContentType = 'image/jpeg' }
-        '.png' { $invokeParams.ContentType = 'image/png' }
+    Process {
+        # $invokeParams | Write-Output
+        $response = Invoke-RestMethod @invokeParams
+        $response | Write-Output
     }
-
-    $invokeParams | Write-Output
-    $response = Invoke-RestMethod @invokeParams
-    # $response | Write-Output
 }
